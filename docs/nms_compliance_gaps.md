@@ -329,9 +329,11 @@ The Interface MIB answers: **"What ports does this switch have, what state are t
 
 Every network port — physical Ethernet, LAG (PortChannel), loopback, management — is one row in `ifTable` / `ifXTable`. NMS platforms poll this MIB every 60–300 seconds to graph bandwidth, detect link failures, and trigger alerting workflows.
 
-> **IETF references**
-> - RFC 1213 (MIB-II): <https://www.rfc-editor.org/rfc/rfc1213>
-> - RFC 2863 (IF-MIB): <https://www.rfc-editor.org/rfc/rfc2863>
+> **IETF standards**
+> - [RFC 1213 — MIB-II (Management Information Base for Network Management of TCP/IP-based Internets)](https://www.rfc-editor.org/rfc/rfc1213)
+> - [RFC 2863 — The Interfaces Group MIB (IF-MIB)](https://www.rfc-editor.org/rfc/rfc2863)
+> - [IF-MIB module text (IETF)](https://www.ietf.org/rfc/rfc2863.txt)
+> - [IANAifType-MIB — interface type registry (IANA)](https://www.iana.org/assignments/ianaiftype-mib/ianaiftype-mib)
 
 ### 4.2 MIB structure and OID layout
 
@@ -616,9 +618,10 @@ The Entity MIB answers: **"What physical hardware is installed in this switch, a
 
 It exposes a tree of every physical component — chassis, fan drawers, fans, PSUs, transceivers, and line cards — as rows in `entPhysicalTable`. NMS platforms use this to build inventory databases, detect hardware add/remove events, and audit FRU serial numbers and firmware versions.
 
-> **IETF references**
-> - RFC 2737 (Entity MIB v2): <https://www.rfc-editor.org/rfc/rfc2737>
-> - RFC 4133 (Entity MIB v3 update): <https://www.rfc-editor.org/rfc/rfc4133>
+> **IETF standards**
+> - [RFC 2737 — Entity MIB (Version 2)](https://www.rfc-editor.org/rfc/rfc2737)
+> - [RFC 4133 — Entity MIB (Version 3 update)](https://www.rfc-editor.org/rfc/rfc4133)
+> - [ENTITY-MIB module text (IETF)](https://www.ietf.org/rfc/rfc2737.txt)
 
 **UpscaleAI vendor OID root (PEN 64820):**
 Used in `entPhysicalVendorType` to identify UpscaleAI hardware parts:
@@ -872,8 +875,10 @@ It is an extension of Entity MIB. Every `SENSOR(8)` row in `entPhysicalTable` ha
 
 RFC 3433 deliberately has **no built-in threshold notification mechanism**. Instead, the RFC recommends using the RMON Alarm/Events MIB (RFC 2819) for threshold-based alerting. The Cisco ENTITY-SENSOR-MIB extension adds `entSensorThresholdTable` and the `entSensorThresholdNotification` to fill this gap.
 
-> **IETF reference**
-> - RFC 3433: <https://www.rfc-editor.org/rfc/rfc3433>
+> **IETF standards**
+> - [RFC 3433 — Entity Sensor Management Information Base (ENTITY-SENSOR-MIB)](https://www.rfc-editor.org/rfc/rfc3433)
+> - [ENTITY-SENSOR-MIB module text (IETF)](https://www.ietf.org/rfc/rfc3433.txt)
+> - [RFC 2819 — RMON Alarm and Events MIB](https://www.rfc-editor.org/rfc/rfc2819) *(recommended by RFC 3433 for threshold notifications)*
 
 ### 6.2 Sensor reading — full lifecycle
 
@@ -1274,5 +1279,43 @@ docker exec -it snmp snmpwalk -v2c -c public localhost .1.3.6.1.2.1.99.1.1.1
 
 ---
 
-*Analysis based on RFC 2863 (June 2000), RFC 2737 (December 1999), RFC 3433 (December 2002)*  
-*Commit `6bc7412` · Branch `thongal_nms_compliance1` · UpscaleAI PEN `64820`*
+---
+
+## References
+
+### IETF Standards
+
+| RFC | Title | Relevance |
+|---|---|---|
+| [RFC 1213](https://www.rfc-editor.org/rfc/rfc1213) | MIB-II | Defines `ifTable` (basic interface counters, admin/oper status) |
+| [RFC 2863](https://www.rfc-editor.org/rfc/rfc2863) | The Interfaces Group MIB (IF-MIB) | `ifXTable`, 64-bit HC counters, `ifHighSpeed`, `linkUp/linkDown` traps |
+| [RFC 2737](https://www.rfc-editor.org/rfc/rfc2737) | Entity MIB v2 | `entPhysicalTable`, `entConfigChange` trap |
+| [RFC 4133](https://www.rfc-editor.org/rfc/rfc4133) | Entity MIB v3 | `entPhysicalContainsTable`, `entLastChangeTime` semantics |
+| [RFC 3433](https://www.rfc-editor.org/rfc/rfc3433) | Entity Sensor MIB | `entPhySensorTable` — live sensor readings |
+| [RFC 2819](https://www.rfc-editor.org/rfc/rfc2819) | RMON MIB | Alarm/Events groups — threshold notification mechanism deferred to here by RFC 3433 |
+| [RFC 3418](https://www.rfc-editor.org/rfc/rfc3418) | SNMPv2-MIB | `coldStart`, `warmStart`, `authenticationFailure` standard traps |
+| [RFC 3416](https://www.rfc-editor.org/rfc/rfc3416) | SNMPv2 Protocol Operations | GET, GETNEXT, GETBULK, SET PDU definitions |
+
+### MIB Module Text
+
+| MIB | Source |
+|---|---|
+| IF-MIB | <https://www.ietf.org/rfc/rfc2863.txt> |
+| IANAifType-MIB (interface type registry) | <https://www.iana.org/assignments/ianaiftype-mib/ianaiftype-mib> |
+| ENTITY-MIB | <https://www.ietf.org/rfc/rfc2737.txt> |
+| ENTITY-SENSOR-MIB | <https://www.ietf.org/rfc/rfc3433.txt> |
+| SNMPv2-MIB | <https://www.ietf.org/rfc/rfc3418.txt> |
+| All IETF MIB modules | <https://mibs.ietf.org/> |
+
+### Internal References
+
+| Resource | Link |
+|---|---|
+| UpscaleAI SNMP landing page (PEN 64820, MIB support matrix, community string setup) | [Confluence — sw/206733324](https://bugatti-asic.atlassian.net/wiki/spaces/sw/pages/206733324/UpscaleAI+SNMP+landing+page) |
+| sonic-snmpagent upstream | <https://github.com/sonic-net/sonic-snmpagent> |
+
+### Source metadata
+
+- **Commit:** `6bc7412` · **Branch:** `thongal_nms_compliance1`
+- **UpscaleAI Enterprise PEN:** `64820` (`1.3.6.1.4.1.64820`)
+- **RFC dates:** RFC 1213 (Mar 1991) · RFC 2863 (Jun 2000) · RFC 2737 (Dec 1999) · RFC 3433 (Dec 2002)
