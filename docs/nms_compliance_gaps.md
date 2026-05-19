@@ -26,6 +26,7 @@
 ### 1.1 Container architecture
 
 ```mermaid
+%%{init: {'theme': 'base', 'themeVariables': {'fontSize': '18px', 'lineHeight': '1.5'}, 'flowchart': {'nodeSpacing': 60, 'rankSpacing': 70, 'padding': 20}, 'sequence': {'actorFontSize': 18, 'noteFontSize': 17, 'messageFontSize': 17}}}%%
 graph LR
     classDef ext   fill:#444488,color:#fff,stroke:#333
     classDef snmp  fill:#b35c00,color:#fff,stroke:#7a3f00,stroke-width:2px
@@ -65,6 +66,7 @@ graph LR
 ### 1.2 One GET request — end to end
 
 ```mermaid
+%%{init: {'theme': 'base', 'themeVariables': {'fontSize': '18px', 'lineHeight': '1.5'}, 'flowchart': {'nodeSpacing': 60, 'rankSpacing': 70, 'padding': 20}, 'sequence': {'actorFontSize': 18, 'noteFontSize': 17, 'messageFontSize': 17}}}%%
 sequenceDiagram
     participant NMS  as NMS / your laptop
     participant SNMPD as snmpd (master)
@@ -138,6 +140,7 @@ pytest solves this by letting you **encode your expectations as executable asser
 ### 2.2 How pytest works — the essentials
 
 ```mermaid
+%%{init: {'theme': 'base', 'themeVariables': {'fontSize': '18px', 'lineHeight': '1.5'}, 'flowchart': {'nodeSpacing': 60, 'rankSpacing': 70, 'padding': 20}, 'sequence': {'actorFontSize': 18, 'noteFontSize': 17, 'messageFontSize': 17}}}%%
 flowchart LR
     A["conftest.py\nfixtures: session-scoped\nSNMP connection\nswitch IP / community"]
     B["test_interface_mib.py\ntest_entity_mib.py\ntest_sensor_mib.py"]
@@ -237,6 +240,7 @@ class SnmpClient:
 ### 2.4 The four test tiers for MIB validation
 
 ```mermaid
+%%{init: {'theme': 'base', 'themeVariables': {'fontSize': '18px', 'lineHeight': '1.5'}, 'flowchart': {'nodeSpacing': 60, 'rankSpacing': 70, 'padding': 20}, 'sequence': {'actorFontSize': 18, 'noteFontSize': 17, 'messageFontSize': 17}}}%%
 graph TD
     T1["Tier 1 — Unit tests (offline)\nno switch needed\nmock Redis with JSON fixtures\nfast: runs in < 1 s\nLives in: tests/test_rfc*.py"]
     T2["Tier 2 — Smoke tests (live switch)\nsnmpwalk key OIDs\nverify non-empty, correct types\nruns in < 30 s"]
@@ -338,6 +342,7 @@ Every network port — physical Ethernet, LAG (PortChannel), loopback, managemen
 ### 4.2 MIB structure and OID layout
 
 ```mermaid
+%%{init: {'theme': 'base', 'themeVariables': {'fontSize': '18px', 'lineHeight': '1.5'}, 'flowchart': {'nodeSpacing': 60, 'rankSpacing': 70, 'padding': 20}, 'sequence': {'actorFontSize': 18, 'noteFontSize': 17, 'messageFontSize': 17}}}%%
 graph TD
     classDef root fill:#1a3a6b,color:#fff,stroke:#0d2545
     classDef table fill:#1a6b1a,color:#fff,stroke:#0d4a0d
@@ -407,6 +412,7 @@ In SONiC today, **this is hardcoded `disabled(2)` for every interface**, so neit
 #### SONiC gap status
 
 ```mermaid
+%%{init: {'theme': 'base', 'themeVariables': {'fontSize': '18px', 'lineHeight': '1.5'}, 'flowchart': {'nodeSpacing': 60, 'rankSpacing': 70, 'padding': 20}, 'sequence': {'actorFontSize': 18, 'noteFontSize': 17, 'messageFontSize': 17}}}%%
 sequenceDiagram
     participant Switch as SONiC switch
     participant NMS as NMS / Zabbix
@@ -431,6 +437,7 @@ sequenceDiagram
 ### 4.4 Data flow — where counters come from
 
 ```mermaid
+%%{init: {'theme': 'base', 'themeVariables': {'fontSize': '18px', 'lineHeight': '1.5'}, 'flowchart': {'nodeSpacing': 60, 'rankSpacing': 70, 'padding': 20}, 'sequence': {'actorFontSize': 18, 'noteFontSize': 17, 'messageFontSize': 17}}}%%
 graph LR
     classDef hw   fill:#2d4a2d,color:#fff,stroke:#1a331a
     classDef db   fill:#4a4a4a,color:#fff,stroke:#333
@@ -481,6 +488,7 @@ graph LR
 ### 4.6 Known gaps
 
 ```mermaid
+%%{init: {'theme': 'base', 'themeVariables': {'fontSize': '18px', 'lineHeight': '1.5'}, 'flowchart': {'nodeSpacing': 60, 'rankSpacing': 70, 'padding': 20}, 'sequence': {'actorFontSize': 18, 'noteFontSize': 17, 'messageFontSize': 17}}}%%
 graph LR
     classDef p0 fill:#8b0000,color:#fff,stroke:#5a0000
     classDef p1 fill:#7a3200,color:#fff,stroke:#4a1e00
@@ -630,6 +638,7 @@ Used in `entPhysicalVendorType` to identify UpscaleAI hardware parts:
 ### 5.2 Physical entity tree
 
 ```mermaid
+%%{init: {'theme': 'base', 'themeVariables': {'fontSize': '18px', 'lineHeight': '1.5'}, 'flowchart': {'nodeSpacing': 60, 'rankSpacing': 70, 'padding': 20}, 'sequence': {'actorFontSize': 18, 'noteFontSize': 17, 'messageFontSize': 17}}}%%
 graph TD
     classDef chassis fill:#1a3a6b,color:#fff,stroke:#0d2545
     classDef module  fill:#1a6b1a,color:#fff,stroke:#0d4a0d
@@ -664,6 +673,7 @@ graph TD
 ### 5.3 OID structure
 
 ```mermaid
+%%{init: {'theme': 'base', 'themeVariables': {'fontSize': '18px', 'lineHeight': '1.5'}, 'flowchart': {'nodeSpacing': 60, 'rankSpacing': 70, 'padding': 20}, 'sequence': {'actorFontSize': 18, 'noteFontSize': 17, 'messageFontSize': 17}}}%%
 graph TD
     classDef root fill:#1a3a6b,color:#fff,stroke:#0d2545
     classDef table fill:#1a6b1a,color:#fff,stroke:#0d4a0d
@@ -720,6 +730,7 @@ Key facts about `entConfigChange`:
 - **SONiC status:** Not implemented. Hardware add/remove events in `STATE_DB` are never turned into traps.
 
 ```mermaid
+%%{init: {'theme': 'base', 'themeVariables': {'fontSize': '18px', 'lineHeight': '1.5'}, 'flowchart': {'nodeSpacing': 60, 'rankSpacing': 70, 'padding': 20}, 'sequence': {'actorFontSize': 18, 'noteFontSize': 17, 'messageFontSize': 17}}}%%
 sequenceDiagram
     participant HW   as Hardware (PSU/FAN/XCVR)
     participant Daemon as pmon daemon
@@ -749,6 +760,7 @@ sequenceDiagram
 ### 5.5 entPhysicalIndex scheme
 
 ```mermaid
+%%{init: {'theme': 'base', 'themeVariables': {'fontSize': '18px', 'lineHeight': '1.5'}, 'flowchart': {'nodeSpacing': 60, 'rankSpacing': 70, 'padding': 20}, 'sequence': {'actorFontSize': 18, 'noteFontSize': 17, 'messageFontSize': 17}}}%%
 graph LR
     classDef idx fill:#333,color:#fff,stroke:#111
 
@@ -883,6 +895,7 @@ RFC 3433 deliberately has **no built-in threshold notification mechanism**. Inst
 ### 6.2 Sensor reading — full lifecycle
 
 ```mermaid
+%%{init: {'theme': 'base', 'themeVariables': {'fontSize': '18px', 'lineHeight': '1.5'}, 'flowchart': {'nodeSpacing': 60, 'rankSpacing': 70, 'padding': 20}, 'sequence': {'actorFontSize': 18, 'noteFontSize': 17, 'messageFontSize': 17}}}%%
 graph TD
     classDef hw   fill:#2d4a2d,color:#fff,stroke:#1a331a
     classDef db   fill:#4a4a4a,color:#fff,stroke:#333
@@ -909,6 +922,7 @@ graph TD
 ### 6.3 Sensor encoding — type, scale, precision
 
 ```mermaid
+%%{init: {'theme': 'base', 'themeVariables': {'fontSize': '18px', 'lineHeight': '1.5'}, 'flowchart': {'nodeSpacing': 60, 'rankSpacing': 70, 'padding': 20}, 'sequence': {'actorFontSize': 18, 'noteFontSize': 17, 'messageFontSize': 17}}}%%
 graph LR
     classDef ex fill:#1a3a6b,color:#fff,stroke:#0d2545
 
@@ -940,6 +954,7 @@ graph LR
 ### 6.4 OID structure and notification gap
 
 ```mermaid
+%%{init: {'theme': 'base', 'themeVariables': {'fontSize': '18px', 'lineHeight': '1.5'}, 'flowchart': {'nodeSpacing': 60, 'rankSpacing': 70, 'padding': 20}, 'sequence': {'actorFontSize': 18, 'noteFontSize': 17, 'messageFontSize': 17}}}%%
 graph TD
     classDef root  fill:#1a3a6b,color:#fff,stroke:#0d2545
     classDef table fill:#1a6b1a,color:#fff,stroke:#0d4a0d
@@ -980,6 +995,7 @@ docker exec -it database redis-cli -n 6 HGET "PSU_INFO|PSU 1" "temp_threshold"
 ```
 
 ```mermaid
+%%{init: {'theme': 'base', 'themeVariables': {'fontSize': '18px', 'lineHeight': '1.5'}, 'flowchart': {'nodeSpacing': 60, 'rankSpacing': 70, 'padding': 20}, 'sequence': {'actorFontSize': 18, 'noteFontSize': 17, 'messageFontSize': 17}}}%%
 sequenceDiagram
     participant Sensor as Physical sensor
     participant Daemon as thermalctld
@@ -1161,6 +1177,7 @@ To add a new test scenario: add the fixture data to `tests/mock_tables/state_db.
 ## 8. How to Fill a Gap — Contributor Workflow
 
 ```mermaid
+%%{init: {'theme': 'base', 'themeVariables': {'fontSize': '18px', 'lineHeight': '1.5'}, 'flowchart': {'nodeSpacing': 60, 'rankSpacing': 70, 'padding': 20}, 'sequence': {'actorFontSize': 18, 'noteFontSize': 17, 'messageFontSize': 17}}}%%
 flowchart TD
     A["1. Pick a gap from this doc"]
     B["2. Find the MIB file\nrfc1213 / rfc2863 / rfc2737 / rfc3433"]
