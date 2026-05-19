@@ -1,5 +1,3 @@
-# SONiC SNMP — MIB Developer & Test Guide
-
 > **Audience:** Engineers new to SNMP and/or SONiC who want to understand, test, and contribute to
 > Interface, Entity, and Sensor MIB support on a Spectrum-4 based SONiC switch.
 >
@@ -26,47 +24,75 @@
 ### 1.1 Container architecture
 
 ```mermaid
-%%{init: {'theme': 'base', 'themeVariables': {'fontSize': '18px', 'lineHeight': '1.5'}, 'flowchart': {'nodeSpacing': 60, 'rankSpacing': 70, 'padding': 20}, 'sequence': {'actorFontSize': 18, 'noteFontSize': 17, 'messageFontSize': 17}}}%%
 graph LR
-    classDef ext   fill:#444488,color:#fff,stroke:#333
-    classDef snmp  fill:#b35c00,color:#fff,stroke:#7a3f00,stroke-width:2px
-    classDef sub   fill:#cc6600,color:#fff,stroke:#994d00
-    classDef redis fill:#2d4a2d,color:#fff,stroke:#1a331a
-    classDef pmon  fill:#1a6b6b,color:#fff,stroke:#0d4545
+    classDef ext   fill:#1565C0,color:#fff,stroke:#0D47A1,stroke-width:2px
+    classDef snmp  fill:#BF360C,color:#fff,stroke:#870000,stroke-width:2px
+    classDef sub   fill:#E64A19,color:#fff,stroke:#BF360C,stroke-width:2px
+    classDef redis fill:#1B5E20,color:#fff,stroke:#003300,stroke-width:2px
+    classDef pmon  fill:#004D40,color:#fff,stroke:#002B22,stroke-width:2px
+    classDef bgp   fill:#4A148C,color:#fff,stroke:#12005E,stroke-width:2px
+    classDef bgpax fill:#7B1FA2,color:#fff,stroke:#4A148C,stroke-width:2px,stroke-dasharray:6 3
 
-    NMS["Your laptop / NMS\nsnmpwalk · snmpget\nZabbix · PRTG\nUDP 161"]:::ext
+    NMS["🖥️  Your laptop / NMS\nsnmpwalk · snmpget\nZabbix · PRTG\nUDP port 161"]:::ext
 
-    subgraph docker_snmp["docker-snmp  (host net ns)"]
-        SNMPD["snmpd\nNet-SNMP master\nAgentX master\ntcp:localhost:3161"]:::snmp
-        AX["sonic_ax_impl\nPython AgentX subagent\npolls Redis every 5 s\nserves all SONiC MIBs"]:::sub
+    subgraph docker_snmp["🔶  docker-snmp  (host net namespace)"]
+        SNMPD["snmpd\nNet-SNMP master agent\nAgentX master  tcp:3161\nhandles all SNMP PDUs"]:::snmp
+        AX["sonic_ax_impl\nPython AgentX subagent\npolls Redis every 5 s\nserves IF · Entity · Sensor MIBs"]:::sub
     end
 
-    subgraph docker_database["docker-database  (Redis)"]
+    subgraph docker_bgp["🟣  docker-bgp  (FRRouting / Zebra)"]
+        FRR["zebra · bgpd · ospfd\nFRRouting daemon\nrouting protocol stack"]:::bgp
+        BGP_AX["snmpd AgentX client\n⚠️ disabled by default\nenable: 'agentx' in frr.conf\nserves BGP4-MIB · OSPF-MIB"]:::bgpax
+    end
+
+    subgraph docker_database["🟢  docker-database  (Redis)"]
         STATE["STATE_DB  db=6\nFAN_INFO · PSU_INFO\nTHERMAL_INFO · XCVR_*\nASIC_TEMPERATURE_INFO"]:::redis
         CNT["COUNTERS_DB  db=2\nper-port 64-bit SAI counters"]:::redis
         APPL["APPL_DB  db=0\nPORT_TABLE · LAG_TABLE\nLAG_MEMBER_TABLE"]:::redis
         CFG["CONFIG_DB  db=4\nSNMP community/user\nSNMP_TRAP_CONFIG"]:::redis
     end
 
-    subgraph pmon["pmon  (platform daemons)"]
+    subgraph pmon["🩵  pmon  (platform daemons)"]
         XCVRD["xcvrd\ntransceiver data"]:::pmon
         PSUD["psud · fand\nPSU / fan / thermal"]:::pmon
     end
 
-    NMS -->|"GET / GETNEXT / GETBULK  UDP 161"| SNMPD
-    SNMPD <-->|"AgentX tcp:3161"| AX
-    AX -->|"SonicV2Connector HGET/HGETALL"| STATE
-    AX -->|"HGET per-port counter keys"| CNT
-    AX -->|"HGETALL port/lag tables"| APPL
-    AX -->|"community strings"| CFG
-    XCVRD --> STATE
-    PSUD --> STATE
+    NMS      -->|"GET / GETNEXT / GETBULK  UDP 161"| SNMPD
+    SNMPD   <-->|"AgentX  tcp:localhost:3161"| AX
+    SNMPD   <-->|"AgentX  tcp:localhost:3161\n(only when agentx enabled in FRR)"| BGP_AX
+    FRR      -.->|"BGP/OSPF state"| BGP_AX
+    AX       -->|"SonicV2Connector HGET/HGETALL"| STATE
+    AX       -->|"HGET per-port counter keys"| CNT
+    AX       -->|"HGETALL port/lag tables"| APPL
+    AX       -->|"community strings"| CFG
+    XCVRD    --> STATE
+    PSUD     --> STATE
 ```
 
-### 1.2 One GET request — end to end
+### 1.2 BGP container — AgentX is off by default
+
+The `docker-bgp` container runs **FRRouting (FRR)**, which has a built-in AgentX client capable of serving routing protocol MIBs to `snmpd`. However, **this is disabled by default** in SONiC.
+
+| MIB | RFC | What it provides |
+|---|---|---|
+| BGP4-MIB | [RFC 4273](https://www.rfc-editor.org/rfc/rfc4273) | BGP peer state, session counts, prefix counts |
+| OSPF-MIB | [RFC 4750](https://www.rfc-editor.org/rfc/rfc4750) | OSPF neighbor state, area info |
+
+**To enable BGP MIB via AgentX**, add these lines to `/etc/frr/frr.conf` (or apply via `vtysh`):
+
+```
+router bgp <ASN>
+ !
+agentx
+```
+
+Then restart FRR: `sudo systemctl restart frr` (or `docker exec docker-bgp supervisorctl restart bgpd`).
+
+Without the `agentx` directive, all BGP OIDs under `.1.3.6.1.2.1.15` will return "no such object" even though `snmpd` is running and healthy.
+
+### 1.3 One GET request — end to end
 
 ```mermaid
-%%{init: {'theme': 'base', 'themeVariables': {'fontSize': '18px', 'lineHeight': '1.5'}, 'flowchart': {'nodeSpacing': 60, 'rankSpacing': 70, 'padding': 20}, 'sequence': {'actorFontSize': 18, 'noteFontSize': 17, 'messageFontSize': 17}}}%%
 sequenceDiagram
     participant NMS  as NMS / your laptop
     participant SNMPD as snmpd (master)
@@ -84,7 +110,7 @@ sequenceDiagram
     Note over NMS: NMS decodes: 40500000 / 10^6 = 40.5 °C
 ```
 
-### 1.3 Workspace code map
+### 1.4 Workspace code map
 
 ```
 sonic-snmpagent/
@@ -140,16 +166,43 @@ pytest solves this by letting you **encode your expectations as executable asser
 ### 2.2 How pytest works — the essentials
 
 ```mermaid
-%%{init: {'theme': 'base', 'themeVariables': {'fontSize': '18px', 'lineHeight': '1.5'}, 'flowchart': {'nodeSpacing': 60, 'rankSpacing': 70, 'padding': 20}, 'sequence': {'actorFontSize': 18, 'noteFontSize': 17, 'messageFontSize': 17}}}%%
-flowchart LR
-    A["conftest.py\nfixtures: session-scoped\nSNMP connection\nswitch IP / community"]
-    B["test_interface_mib.py\ntest_entity_mib.py\ntest_sensor_mib.py"]
-    C["pytest runner\npytest tests/ -v\n--snmp-host 10.0.0.1"]
-    D["PASS / FAIL report\nper test function\nwith diff on failure"]
+flowchart TD
+    classDef setup  fill:#1565C0,color:#fff,stroke:#0D47A1,stroke-width:2px
+    classDef files  fill:#2E7D32,color:#fff,stroke:#1B5E20,stroke-width:2px
+    classDef run    fill:#E65100,color:#fff,stroke:#BF360C,stroke-width:2px
+    classDef assert fill:#6A1B9A,color:#fff,stroke:#4A148C,stroke-width:2px
+    classDef pass_  fill:#1B5E20,color:#fff,stroke:#003300,stroke-width:3px
+    classDef fail   fill:#B71C1C,color:#fff,stroke:#7F0000,stroke-width:3px
+    classDef helper fill:#004D40,color:#fff,stroke:#002B22,stroke-width:2px
 
-    A -->|"fixtures injected\ninto test functions"| B
-    C -->|"discovers test_*.py\nruns each test_*() function"| B
-    B --> D
+    CF["📋  conftest.py\n@pytest.fixture(scope='session')\nSNMP connection created once\n--snmp-host / --community args\ninjected into every test function"]:::setup
+
+    SU["🔧  snmp_util.py\nSnmpClient helper\n.get(oid)  → single OID\n.walk(oid) → full subtree\n.bulk_walk(oid) → fast GETBULK"]:::helper
+
+    TI["📁  test_interface_mib.py\nifOperStatus valid values\nifHC counters are Counter64\nifHighSpeed non-zero\ngap: ifLastChange == 0\ngap: TrapEnable == disabled"]:::files
+    TE["📁  test_entity_mib.py\nchassis at index 1\nsensor entities present\ncontainment chain valid\nisFRU in {1,2}"]:::files
+    TS["📁  test_sensor_mib.py\ntable not empty\ntype in RFC range\nprecision -8..9\ncelsius sensors sane\ngap: UnitsDisplay empty"]:::files
+
+    RUN["▶  pytest tests/ -v\n--snmp-host 10.0.0.1\n--snmp-port 161\n--community public\n--timeout 30"]:::run
+
+    SNMP["📡  SNMPv2c GET / WALK\nto live switch\nor unit test via mock Redis\n(no switch needed for Tier 1)"]:::run
+
+    ASS["🔍  assert statement\nassert int(val) in {1,2,3,4,5,6,7}\nassert isinstance(val, Counter64)\nassert rows, 'ifTable empty'\nassert -8 <= precision <= 9"]:::assert
+
+    PASS["✅  PASSED\ntest_hc_counters_are_counter64_type\ntest_chassis_exists_at_index_1\n… (ms timing shown)"]:::pass_
+    FAIL["❌  FAILED\nassert 0 == 1565200\n   where 0 = int(val)\n   at OID .2.2.1.9.3\n→ pinpoints the broken object"]:::fail
+
+    CF  -->|"snmp fixture injected"| TI
+    CF  -->|"snmp fixture injected"| TE
+    CF  -->|"snmp fixture injected"| TS
+    SU  --> TI & TE & TS
+    RUN -->|"discovers test_*.py\nruns each test_*() function"| TI & TE & TS
+    TI  --> SNMP
+    TE  --> SNMP
+    TS  --> SNMP
+    SNMP --> ASS
+    ASS -->|"condition true"| PASS
+    ASS -->|"condition false"| FAIL
 ```
 
 The three things you need to know:
@@ -240,14 +293,23 @@ class SnmpClient:
 ### 2.4 The four test tiers for MIB validation
 
 ```mermaid
-%%{init: {'theme': 'base', 'themeVariables': {'fontSize': '18px', 'lineHeight': '1.5'}, 'flowchart': {'nodeSpacing': 60, 'rankSpacing': 70, 'padding': 20}, 'sequence': {'actorFontSize': 18, 'noteFontSize': 17, 'messageFontSize': 17}}}%%
 graph TD
-    T1["Tier 1 — Unit tests (offline)\nno switch needed\nmock Redis with JSON fixtures\nfast: runs in < 1 s\nLives in: tests/test_rfc*.py"]
-    T2["Tier 2 — Smoke tests (live switch)\nsnmpwalk key OIDs\nverify non-empty, correct types\nruns in < 30 s"]
-    T3["Tier 3 — Correctness tests (live switch)\ncross-check SNMP value == Redis value\nverify sensor decode math\nverify entity tree structure"]
-    T4["Tier 4 — Known-gap tests\nassert gap OIDs return nothing / hardcoded value\nturn into positive tests when gap is fixed\nautomatically detect when a gap gets closed"]
+    classDef t1 fill:#1565C0,color:#fff,stroke:#0D47A1,stroke-width:3px
+    classDef t2 fill:#2E7D32,color:#fff,stroke:#1B5E20,stroke-width:3px
+    classDef t3 fill:#E65100,color:#fff,stroke:#BF360C,stroke-width:3px
+    classDef t4 fill:#6A1B9A,color:#fff,stroke:#4A148C,stroke-width:3px
 
-    T1 --> T2 --> T3 --> T4
+    T1["🔵  Tier 1 — Offline unit tests\nNo switch required\nMock Redis via JSON fixtures\nRuns in under 1 second\nFiles: tests/test_rfc*.py\npytest tests/test_rfc*.py -v"]:::t1
+
+    T2["🟢  Tier 2 — Live smoke tests\nReal switch, real SNMP\nWalk key OIDs per MIB\nVerify non-empty + correct types\nRuns in under 30 seconds"]:::t2
+
+    T3["🟠  Tier 3 — Correctness tests\nReal switch + Redis cross-check\nSNMP value == redis-cli value\nSensor decode math verified\nEntity tree containment valid"]:::t3
+
+    T4["🟣  Tier 4 — Known-gap tracking\nAssert gap OIDs return 0 / empty\nTest FAILS when gap is fixed\nAutomatically flags closed gaps\nFlip assert to positive test to close"]:::t4
+
+    T1 -->|"confirms updater logic\nworks offline"| T2
+    T2 -->|"confirms MIB is reachable\non real hardware"| T3
+    T3 -->|"correctness verified;\nnow track the known gaps"| T4
 ```
 
 ### 2.5 Running pytest
@@ -336,18 +398,20 @@ Every network port — physical Ethernet, LAG (PortChannel), loopback, managemen
 > **IETF standards**
 > - [RFC 1213 — MIB-II (Management Information Base for Network Management of TCP/IP-based Internets)](https://www.rfc-editor.org/rfc/rfc1213)
 > - [RFC 2863 — The Interfaces Group MIB (IF-MIB)](https://www.rfc-editor.org/rfc/rfc2863)
-> - [IF-MIB module text (IETF)](https://www.ietf.org/rfc/rfc2863.txt)
-> - [IANAifType-MIB — interface type registry (IANA)](https://www.iana.org/assignments/ianaiftype-mib/ianaiftype-mib)
+> - [IF-MIB module text (IANA)](https://www.iana.org/assignments/ianaiftype-mib/ianaiftype-mib)
+> - [IANAifType-MIB — interface type registry](https://www.iana.org/assignments/ianaiftype-mib/ianaiftype-mib)
+>
+> **Internal reference**
+> - [UpscaleAI SNMP landing page (Confluence)](https://bugatti-asic.atlassian.net/wiki/spaces/sw/pages/206733324/UpscaleAI+SNMP+landing+page)
 
 ### 4.2 MIB structure and OID layout
 
 ```mermaid
-%%{init: {'theme': 'base', 'themeVariables': {'fontSize': '18px', 'lineHeight': '1.5'}, 'flowchart': {'nodeSpacing': 60, 'rankSpacing': 70, 'padding': 20}, 'sequence': {'actorFontSize': 18, 'noteFontSize': 17, 'messageFontSize': 17}}}%%
 graph TD
-    classDef root fill:#1a3a6b,color:#fff,stroke:#0d2545
-    classDef table fill:#1a6b1a,color:#fff,stroke:#0d4a0d
-    classDef obj fill:#2d4a2d,color:#fff,stroke:#1a331a
-    classDef notif fill:#8b3a00,color:#fff,stroke:#5a2500
+    classDef root fill:#1565C0,color:#fff,stroke:#0D47A1,stroke-width:2px
+    classDef table fill:#2E7D32,color:#fff,stroke:#1B5E20,stroke-width:2px
+    classDef obj fill:#00695C,color:#fff,stroke:#004D40,stroke-width:2px
+    classDef notif fill:#E65100,color:#fff,stroke:#BF360C,stroke-width:2px
 
     ROOT[".1.3.6.1.2.1\nmib-2"]:::root
     IF[".2  interfaces\nifNumber — total count"]:::table
@@ -412,7 +476,6 @@ In SONiC today, **this is hardcoded `disabled(2)` for every interface**, so neit
 #### SONiC gap status
 
 ```mermaid
-%%{init: {'theme': 'base', 'themeVariables': {'fontSize': '18px', 'lineHeight': '1.5'}, 'flowchart': {'nodeSpacing': 60, 'rankSpacing': 70, 'padding': 20}, 'sequence': {'actorFontSize': 18, 'noteFontSize': 17, 'messageFontSize': 17}}}%%
 sequenceDiagram
     participant Switch as SONiC switch
     participant NMS as NMS / Zabbix
@@ -437,12 +500,11 @@ sequenceDiagram
 ### 4.4 Data flow — where counters come from
 
 ```mermaid
-%%{init: {'theme': 'base', 'themeVariables': {'fontSize': '18px', 'lineHeight': '1.5'}, 'flowchart': {'nodeSpacing': 60, 'rankSpacing': 70, 'padding': 20}, 'sequence': {'actorFontSize': 18, 'noteFontSize': 17, 'messageFontSize': 17}}}%%
 graph LR
-    classDef hw   fill:#2d4a2d,color:#fff,stroke:#1a331a
-    classDef db   fill:#4a4a4a,color:#fff,stroke:#333
-    classDef code fill:#1a3a6b,color:#fff,stroke:#0d2545
-    classDef oid  fill:#b35c00,color:#fff,stroke:#7a3f00
+    classDef hw   fill:#00695C,color:#fff,stroke:#004D40,stroke-width:2px
+    classDef db   fill:#37474F,color:#fff,stroke:#263238,stroke-width:2px
+    classDef code fill:#1565C0,color:#fff,stroke:#0D47A1,stroke-width:2px
+    classDef oid  fill:#E65100,color:#fff,stroke:#BF360C,stroke-width:2px
 
     ASIC["ASIC hardware\ncounts every packet"]:::hw
     SAI["syncd / SAI layer"]:::hw
@@ -488,12 +550,11 @@ graph LR
 ### 4.6 Known gaps
 
 ```mermaid
-%%{init: {'theme': 'base', 'themeVariables': {'fontSize': '18px', 'lineHeight': '1.5'}, 'flowchart': {'nodeSpacing': 60, 'rankSpacing': 70, 'padding': 20}, 'sequence': {'actorFontSize': 18, 'noteFontSize': 17, 'messageFontSize': 17}}}%%
 graph LR
-    classDef p0 fill:#8b0000,color:#fff,stroke:#5a0000
-    classDef p1 fill:#7a3200,color:#fff,stroke:#4a1e00
-    classDef p2 fill:#7a5200,color:#fff,stroke:#4a3000
-    classDef p3 fill:#555,color:#fff,stroke:#333
+    classDef p0 fill:#B71C1C,color:#fff,stroke:#7F0000,stroke-width:2px
+    classDef p1 fill:#E65100,color:#fff,stroke:#BF360C,stroke-width:2px
+    classDef p2 fill:#F57F17,color:#fff,stroke:#BC5100,stroke-width:2px
+    classDef p3 fill:#546E7A,color:#fff,stroke:#37474F,stroke-width:2px
 
     IF["Interface MIB\ngaps"]
     G1["GAP-IF-01  P1\nifLastChange always 0\nrfc1213.py line 631"]:::p1
@@ -630,6 +691,9 @@ It exposes a tree of every physical component — chassis, fan drawers, fans, PS
 > - [RFC 2737 — Entity MIB (Version 2)](https://www.rfc-editor.org/rfc/rfc2737)
 > - [RFC 4133 — Entity MIB (Version 3 update)](https://www.rfc-editor.org/rfc/rfc4133)
 > - [ENTITY-MIB module text (IETF)](https://www.ietf.org/rfc/rfc2737.txt)
+>
+> **Internal reference**
+> - [UpscaleAI SNMP landing page — OID registration guidance (Confluence)](https://bugatti-asic.atlassian.net/wiki/spaces/sw/pages/206733324/UpscaleAI+SNMP+landing+page)
 
 **UpscaleAI vendor OID root (PEN 64820):**
 Used in `entPhysicalVendorType` to identify UpscaleAI hardware parts:
@@ -638,14 +702,13 @@ Used in `entPhysicalVendorType` to identify UpscaleAI hardware parts:
 ### 5.2 Physical entity tree
 
 ```mermaid
-%%{init: {'theme': 'base', 'themeVariables': {'fontSize': '18px', 'lineHeight': '1.5'}, 'flowchart': {'nodeSpacing': 60, 'rankSpacing': 70, 'padding': 20}, 'sequence': {'actorFontSize': 18, 'noteFontSize': 17, 'messageFontSize': 17}}}%%
 graph TD
-    classDef chassis fill:#1a3a6b,color:#fff,stroke:#0d2545
-    classDef module  fill:#1a6b1a,color:#fff,stroke:#0d4a0d
-    classDef device  fill:#1a6b6b,color:#fff,stroke:#0d4545
-    classDef sensor  fill:#7a4a00,color:#fff,stroke:#4a2d00
-    classDef port    fill:#4a0080,color:#fff,stroke:#2d0059
-    classDef gap     fill:#5a0000,color:#fff,stroke:#3d0000
+    classDef chassis fill:#1565C0,color:#fff,stroke:#0D47A1,stroke-width:2px
+    classDef module  fill:#2E7D32,color:#fff,stroke:#1B5E20,stroke-width:2px
+    classDef device  fill:#00695C,color:#fff,stroke:#004D40,stroke-width:2px
+    classDef sensor  fill:#E65100,color:#fff,stroke:#BF360C,stroke-width:2px
+    classDef port    fill:#6A1B9A,color:#fff,stroke:#4A148C,stroke-width:2px
+    classDef gap     fill:#B71C1C,color:#fff,stroke:#7F0000,stroke-width:2px
 
     CHASSIS["chassis 1\nCHASSIS(3) · index 1\nDEVICE_METADATA"]:::chassis
 
@@ -673,13 +736,12 @@ graph TD
 ### 5.3 OID structure
 
 ```mermaid
-%%{init: {'theme': 'base', 'themeVariables': {'fontSize': '18px', 'lineHeight': '1.5'}, 'flowchart': {'nodeSpacing': 60, 'rankSpacing': 70, 'padding': 20}, 'sequence': {'actorFontSize': 18, 'noteFontSize': 17, 'messageFontSize': 17}}}%%
 graph TD
-    classDef root fill:#1a3a6b,color:#fff,stroke:#0d2545
-    classDef table fill:#1a6b1a,color:#fff,stroke:#0d4a0d
-    classDef obj fill:#2d4a2d,color:#fff,stroke:#1a331a
-    classDef notif fill:#8b3a00,color:#fff,stroke:#5a2500
-    classDef gap fill:#5a0000,color:#fff,stroke:#3d0000
+    classDef root fill:#1565C0,color:#fff,stroke:#0D47A1,stroke-width:2px
+    classDef table fill:#2E7D32,color:#fff,stroke:#1B5E20,stroke-width:2px
+    classDef obj fill:#00695C,color:#fff,stroke:#004D40,stroke-width:2px
+    classDef notif fill:#E65100,color:#fff,stroke:#BF360C,stroke-width:2px
+    classDef gap fill:#B71C1C,color:#fff,stroke:#7F0000,stroke-width:2px
 
     ROOT[".1.3.6.1.2.1.47\nentityMIB"]:::root
     PHYS[".47.1.1.1  entPhysicalTable\nOne row per physical component"]:::table
@@ -730,7 +792,6 @@ Key facts about `entConfigChange`:
 - **SONiC status:** Not implemented. Hardware add/remove events in `STATE_DB` are never turned into traps.
 
 ```mermaid
-%%{init: {'theme': 'base', 'themeVariables': {'fontSize': '18px', 'lineHeight': '1.5'}, 'flowchart': {'nodeSpacing': 60, 'rankSpacing': 70, 'padding': 20}, 'sequence': {'actorFontSize': 18, 'noteFontSize': 17, 'messageFontSize': 17}}}%%
 sequenceDiagram
     participant HW   as Hardware (PSU/FAN/XCVR)
     participant Daemon as pmon daemon
@@ -760,9 +821,8 @@ sequenceDiagram
 ### 5.5 entPhysicalIndex scheme
 
 ```mermaid
-%%{init: {'theme': 'base', 'themeVariables': {'fontSize': '18px', 'lineHeight': '1.5'}, 'flowchart': {'nodeSpacing': 60, 'rankSpacing': 70, 'padding': 20}, 'sequence': {'actorFontSize': 18, 'noteFontSize': 17, 'messageFontSize': 17}}}%%
 graph LR
-    classDef idx fill:#333,color:#fff,stroke:#111
+    classDef idx fill:#455A64,color:#fff,stroke:#263238,stroke-width:2px
 
     I1["index  1\nChassis root"]:::idx
     I2["index  200000000\nMgmt CPU"]:::idx
@@ -891,17 +951,19 @@ RFC 3433 deliberately has **no built-in threshold notification mechanism**. Inst
 > - [RFC 3433 — Entity Sensor Management Information Base (ENTITY-SENSOR-MIB)](https://www.rfc-editor.org/rfc/rfc3433)
 > - [ENTITY-SENSOR-MIB module text (IETF)](https://www.ietf.org/rfc/rfc3433.txt)
 > - [RFC 2819 — RMON Alarm and Events MIB](https://www.rfc-editor.org/rfc/rfc2819) *(recommended by RFC 3433 for threshold notifications)*
+>
+> **Internal reference**
+> - [UpscaleAI SNMP landing page — sensor MIB support matrix (Confluence)](https://bugatti-asic.atlassian.net/wiki/spaces/sw/pages/206733324/UpscaleAI+SNMP+landing+page)
 
 ### 6.2 Sensor reading — full lifecycle
 
 ```mermaid
-%%{init: {'theme': 'base', 'themeVariables': {'fontSize': '18px', 'lineHeight': '1.5'}, 'flowchart': {'nodeSpacing': 60, 'rankSpacing': 70, 'padding': 20}, 'sequence': {'actorFontSize': 18, 'noteFontSize': 17, 'messageFontSize': 17}}}%%
 graph TD
-    classDef hw   fill:#2d4a2d,color:#fff,stroke:#1a331a
-    classDef db   fill:#4a4a4a,color:#fff,stroke:#333
-    classDef code fill:#1a3a6b,color:#fff,stroke:#0d2545
-    classDef oid  fill:#b35c00,color:#fff,stroke:#7a3f00
-    classDef gap  fill:#5a0000,color:#fff,stroke:#3d0000
+    classDef hw   fill:#00695C,color:#fff,stroke:#004D40,stroke-width:2px
+    classDef db   fill:#37474F,color:#fff,stroke:#263238,stroke-width:2px
+    classDef code fill:#1565C0,color:#fff,stroke:#0D47A1,stroke-width:2px
+    classDef oid  fill:#E65100,color:#fff,stroke:#BF360C,stroke-width:2px
+    classDef gap  fill:#B71C1C,color:#fff,stroke:#7F0000,stroke-width:2px
 
     HW["Physical sensor\ne.g. Spectrum-4 die temp"]:::hw
     DAEMON["thermalctld / xcvrd / psud"]:::hw
@@ -922,9 +984,8 @@ graph TD
 ### 6.3 Sensor encoding — type, scale, precision
 
 ```mermaid
-%%{init: {'theme': 'base', 'themeVariables': {'fontSize': '18px', 'lineHeight': '1.5'}, 'flowchart': {'nodeSpacing': 60, 'rankSpacing': 70, 'padding': 20}, 'sequence': {'actorFontSize': 18, 'noteFontSize': 17, 'messageFontSize': 17}}}%%
 graph LR
-    classDef ex fill:#1a3a6b,color:#fff,stroke:#0d2545
+    classDef ex fill:#1565C0,color:#fff,stroke:#0D47A1,stroke-width:2px
 
     RAW["Redis raw string\n'40.5'"]:::ex
     STEP1["sensor_data.py\nparse to float: 40.5"]:::ex
@@ -954,12 +1015,11 @@ graph LR
 ### 6.4 OID structure and notification gap
 
 ```mermaid
-%%{init: {'theme': 'base', 'themeVariables': {'fontSize': '18px', 'lineHeight': '1.5'}, 'flowchart': {'nodeSpacing': 60, 'rankSpacing': 70, 'padding': 20}, 'sequence': {'actorFontSize': 18, 'noteFontSize': 17, 'messageFontSize': 17}}}%%
 graph TD
-    classDef root  fill:#1a3a6b,color:#fff,stroke:#0d2545
-    classDef table fill:#1a6b1a,color:#fff,stroke:#0d4a0d
-    classDef obj   fill:#2d4a2d,color:#fff,stroke:#1a331a
-    classDef gap   fill:#5a0000,color:#fff,stroke:#3d0000
+    classDef root  fill:#1565C0,color:#fff,stroke:#0D47A1,stroke-width:2px
+    classDef table fill:#2E7D32,color:#fff,stroke:#1B5E20,stroke-width:2px
+    classDef obj   fill:#00695C,color:#fff,stroke:#004D40,stroke-width:2px
+    classDef gap   fill:#B71C1C,color:#fff,stroke:#7F0000,stroke-width:2px
 
     ROOT[".1.3.6.1.2.1.99\nentitySensorMIB"]:::root
     SENSOR_TABLE[".99.1.1  entPhySensorTable\nOne row per SENSOR entity\nindexed by entPhysicalIndex"]:::table
@@ -995,7 +1055,6 @@ docker exec -it database redis-cli -n 6 HGET "PSU_INFO|PSU 1" "temp_threshold"
 ```
 
 ```mermaid
-%%{init: {'theme': 'base', 'themeVariables': {'fontSize': '18px', 'lineHeight': '1.5'}, 'flowchart': {'nodeSpacing': 60, 'rankSpacing': 70, 'padding': 20}, 'sequence': {'actorFontSize': 18, 'noteFontSize': 17, 'messageFontSize': 17}}}%%
 sequenceDiagram
     participant Sensor as Physical sensor
     participant Daemon as thermalctld
@@ -1177,7 +1236,6 @@ To add a new test scenario: add the fixture data to `tests/mock_tables/state_db.
 ## 8. How to Fill a Gap — Contributor Workflow
 
 ```mermaid
-%%{init: {'theme': 'base', 'themeVariables': {'fontSize': '18px', 'lineHeight': '1.5'}, 'flowchart': {'nodeSpacing': 60, 'rankSpacing': 70, 'padding': 20}, 'sequence': {'actorFontSize': 18, 'noteFontSize': 17, 'messageFontSize': 17}}}%%
 flowchart TD
     A["1. Pick a gap from this doc"]
     B["2. Find the MIB file\nrfc1213 / rfc2863 / rfc2737 / rfc3433"]
@@ -1304,35 +1362,38 @@ docker exec -it snmp snmpwalk -v2c -c public localhost .1.3.6.1.2.1.99.1.1.1
 
 | RFC | Title | Relevance |
 |---|---|---|
-| [RFC 1213](https://www.rfc-editor.org/rfc/rfc1213) | MIB-II | Defines `ifTable` (basic interface counters, admin/oper status) |
-| [RFC 2863](https://www.rfc-editor.org/rfc/rfc2863) | The Interfaces Group MIB (IF-MIB) | `ifXTable`, 64-bit HC counters, `ifHighSpeed`, `linkUp/linkDown` traps |
-| [RFC 2737](https://www.rfc-editor.org/rfc/rfc2737) | Entity MIB v2 | `entPhysicalTable`, `entConfigChange` trap |
-| [RFC 4133](https://www.rfc-editor.org/rfc/rfc4133) | Entity MIB v3 | `entPhysicalContainsTable`, `entLastChangeTime` semantics |
-| [RFC 3433](https://www.rfc-editor.org/rfc/rfc3433) | Entity Sensor MIB | `entPhySensorTable` — live sensor readings |
-| [RFC 2819](https://www.rfc-editor.org/rfc/rfc2819) | RMON MIB | Alarm/Events groups — threshold notification mechanism deferred to here by RFC 3433 |
-| [RFC 3418](https://www.rfc-editor.org/rfc/rfc3418) | SNMPv2-MIB | `coldStart`, `warmStart`, `authenticationFailure` standard traps |
+| [RFC 1213](https://www.rfc-editor.org/rfc/rfc1213) | MIB-II — Management Information Base for TCP/IP Networks | Defines `ifTable` (basic interface counters, admin/oper status) |
+| [RFC 2863](https://www.rfc-editor.org/rfc/rfc2863) | The Interfaces Group MIB (IF-MIB) | Extends RFC 1213 with `ifXTable`, 64-bit HC counters, `ifHighSpeed`, `linkUp/linkDown` traps |
+| [RFC 2737](https://www.rfc-editor.org/rfc/rfc2737) | Entity MIB Version 2 | Defines `entPhysicalTable` (chassis, PSU, fan, transceiver inventory) and `entConfigChange` trap |
+| [RFC 4133](https://www.rfc-editor.org/rfc/rfc4133) | Entity MIB Version 3 | Updates RFC 2737 — adds `entPhysicalContainsTable`, `entLastChangeTime` semantics |
+| [RFC 3433](https://www.rfc-editor.org/rfc/rfc3433) | Entity Sensor MIB | Defines `entPhySensorTable` — live sensor readings indexed by `entPhysicalIndex` |
+| [RFC 2819](https://www.rfc-editor.org/rfc/rfc2819) | RMON — Remote Network Monitoring MIB | Alarm and Events groups; RFC 3433 explicitly defers threshold notifications to this RFC |
+| [RFC 3418](https://www.rfc-editor.org/rfc/rfc3418) | Management Information Base for SNMPv2 | Defines `coldStart`, `warmStart`, `authenticationFailure` standard traps |
 | [RFC 3416](https://www.rfc-editor.org/rfc/rfc3416) | SNMPv2 Protocol Operations | GET, GETNEXT, GETBULK, SET PDU definitions |
 
-### MIB Module Text
+### MIB Module Text (IETF / IANA)
 
 | MIB | Source |
 |---|---|
-| IF-MIB | <https://www.ietf.org/rfc/rfc2863.txt> |
+| IF-MIB (RFC 2863) | <https://www.ietf.org/rfc/rfc2863.txt> |
 | IANAifType-MIB (interface type registry) | <https://www.iana.org/assignments/ianaiftype-mib/ianaiftype-mib> |
-| ENTITY-MIB | <https://www.ietf.org/rfc/rfc2737.txt> |
-| ENTITY-SENSOR-MIB | <https://www.ietf.org/rfc/rfc3433.txt> |
-| SNMPv2-MIB | <https://www.ietf.org/rfc/rfc3418.txt> |
-| All IETF MIB modules | <https://mibs.ietf.org/> |
+| ENTITY-MIB (RFC 2737) | <https://www.ietf.org/rfc/rfc2737.txt> |
+| ENTITY-SENSOR-MIB (RFC 3433) | <https://www.ietf.org/rfc/rfc3433.txt> |
+| SNMPv2-MIB (RFC 3418) | <https://www.ietf.org/rfc/rfc3418.txt> |
+| All IETF MIB modules (browser) | <https://mibs.ietf.org/> |
 
 ### Internal References
 
 | Resource | Link |
 |---|---|
 | UpscaleAI SNMP landing page (PEN 64820, MIB support matrix, community string setup) | [Confluence — sw/206733324](https://bugatti-asic.atlassian.net/wiki/spaces/sw/pages/206733324/UpscaleAI+SNMP+landing+page) |
-| sonic-snmpagent upstream | <https://github.com/sonic-net/sonic-snmpagent> |
+| sonic-snmpagent source (upstream) | <https://github.com/sonic-net/sonic-snmpagent> |
+| sonic-snmpagent fork (UpscaleAI) | <https://github.com/thongal-upscale/sonic-snmpagent> |
+| Compliance gap PR (thongal-upscale fork) | <https://github.com/thongal-upscale/sonic-snmpagent/pull/1> |
 
 ### Source metadata
 
-- **Commit:** `6bc7412` · **Branch:** `thongal_nms_compliance1`
+- **sonic-snmpagent commit:** `6bc7412`
+- **Analysis branch:** `thongal_nms_compliance1`
 - **UpscaleAI Enterprise PEN:** `64820` (`1.3.6.1.4.1.64820`)
 - **RFC dates:** RFC 1213 (Mar 1991) · RFC 2863 (Jun 2000) · RFC 2737 (Dec 1999) · RFC 3433 (Dec 2002)
