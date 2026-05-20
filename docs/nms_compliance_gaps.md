@@ -1,5 +1,5 @@
 > **Audience:** Engineers new to SNMP and/or SONiC who want to understand, test, and contribute to
-> Interface, Entity, and Sensor MIB support on a Spectrum-4 based SONiC switch.
+> Interface, Entity, and Sensor MIB support on a Spectrum-4-based SONiC switch.
 >
 > **Platform:** Spectrum-4 / SONiC · **Enterprise PEN:** UpscaleAI `64820`  
 > **Branch:** `thongal_nms_compliance1` · **Base commit:** `6bc7412`
@@ -80,7 +80,7 @@ The `docker-bgp` container runs **FRRouting (FRR)**, which has a built-in AgentX
 
 **To enable BGP MIB via AgentX**, add these lines to `/etc/frr/frr.conf` (or apply via `vtysh`):
 
-```
+```bash
 router bgp <ASN>
  !
 agentx
@@ -112,7 +112,7 @@ sequenceDiagram
 
 ### 1.4 Workspace code map
 
-```
+```text
 sonic-snmpagent/
 ├── src/
 │   ├── ax_interface/                         # Generic AgentX protocol (not MIB-specific)
@@ -153,7 +153,7 @@ When you run `snmpwalk` manually, you get a wall of text. You have to visually s
 
 Traditional monitoring tools like Zabbix or Nagios tell you when a metric crosses a threshold, but they aren't designed to **verify correctness**:
 
-```
+```text
 snmpwalk can tell you:   ifOperStatus.3 = INTEGER: 2  (down)
 snmpwalk cannot tell you:  Is this the right interface?
                             Did ifLastChange update when it went down?
@@ -215,7 +215,7 @@ The three things you need to know:
 
 ### 2.3 Anatomy of a MIB test
 
-```
+```text
 tests/
 ├── conftest.py          ← fixtures: SNMP connection, switch IP, community string
 ├── snmp_util.py         ← helper: SnmpClient wrapping get/walk/bulk_walk
@@ -408,10 +408,10 @@ Every network port — physical Ethernet, LAG (PortChannel), loopback, managemen
 
 ```mermaid
 graph TD
-    classDef root fill:#1565C0,color:#fff,stroke:#0D47A1,stroke-width:2px
-    classDef table fill:#2E7D32,color:#fff,stroke:#1B5E20,stroke-width:2px
-    classDef obj fill:#00695C,color:#fff,stroke:#004D40,stroke-width:2px
-    classDef notif fill:#E65100,color:#fff,stroke:#BF360C,stroke-width:2px
+    classDef root fill:#1a3a6b,color:#fff,stroke:#0d2545
+    classDef table fill:#1a6b1a,color:#fff,stroke:#0d4a0d
+    classDef obj fill:#2d4a2d,color:#fff,stroke:#1a331a
+    classDef notif fill:#8b3a00,color:#fff,stroke:#5a2500
 
     ROOT[".1.3.6.1.2.1\nmib-2"]:::root
     IF[".2  interfaces\nifNumber — total count"]:::table
@@ -446,7 +446,7 @@ RFC 2863 defines two notifications that are **the primary mechanism for real-tim
 
 Sent when `ifOperStatus` transitions **into** `down` from any other state (except `notPresent`).
 
-```
+```text
 NOTIFICATION objects: ifIndex, ifAdminStatus, ifOperStatus
 Varbind example:
   ifIndex.3        = INTEGER: 3
@@ -460,7 +460,7 @@ Varbind example:
 
 Sent when `ifOperStatus` transitions **out of** `down` into any other state (except `notPresent`).
 
-```
+```text
 NOTIFICATION objects: ifIndex, ifAdminStatus, ifOperStatus
 Used by NMS to: clear the active fault alarm, log recovery time
 ```
@@ -501,10 +501,10 @@ sequenceDiagram
 
 ```mermaid
 graph LR
-    classDef hw   fill:#00695C,color:#fff,stroke:#004D40,stroke-width:2px
-    classDef db   fill:#37474F,color:#fff,stroke:#263238,stroke-width:2px
-    classDef code fill:#1565C0,color:#fff,stroke:#0D47A1,stroke-width:2px
-    classDef oid  fill:#E65100,color:#fff,stroke:#BF360C,stroke-width:2px
+    classDef hw   fill:#2d4a2d,color:#fff,stroke:#1a331a
+    classDef db   fill:#4a4a4a,color:#fff,stroke:#333
+    classDef code fill:#1a3a6b,color:#fff,stroke:#0d2545
+    classDef oid  fill:#b35c00,color:#fff,stroke:#7a3f00
 
     ASIC["ASIC hardware\ncounts every packet"]:::hw
     SAI["syncd / SAI layer"]:::hw
@@ -551,10 +551,10 @@ graph LR
 
 ```mermaid
 graph LR
-    classDef p0 fill:#B71C1C,color:#fff,stroke:#7F0000,stroke-width:2px
-    classDef p1 fill:#E65100,color:#fff,stroke:#BF360C,stroke-width:2px
-    classDef p2 fill:#F57F17,color:#fff,stroke:#BC5100,stroke-width:2px
-    classDef p3 fill:#546E7A,color:#fff,stroke:#37474F,stroke-width:2px
+    classDef p0 fill:#8b0000,color:#fff,stroke:#5a0000
+    classDef p1 fill:#7a3200,color:#fff,stroke:#4a1e00
+    classDef p2 fill:#7a5200,color:#fff,stroke:#4a3000
+    classDef p3 fill:#555,color:#fff,stroke:#333
 
     IF["Interface MIB\ngaps"]
     G1["GAP-IF-01  P1\nifLastChange always 0\nrfc1213.py line 631"]:::p1
@@ -703,12 +703,12 @@ Used in `entPhysicalVendorType` to identify UpscaleAI hardware parts:
 
 ```mermaid
 graph TD
-    classDef chassis fill:#1565C0,color:#fff,stroke:#0D47A1,stroke-width:2px
-    classDef module  fill:#2E7D32,color:#fff,stroke:#1B5E20,stroke-width:2px
-    classDef device  fill:#00695C,color:#fff,stroke:#004D40,stroke-width:2px
-    classDef sensor  fill:#E65100,color:#fff,stroke:#BF360C,stroke-width:2px
-    classDef port    fill:#6A1B9A,color:#fff,stroke:#4A148C,stroke-width:2px
-    classDef gap     fill:#B71C1C,color:#fff,stroke:#7F0000,stroke-width:2px
+    classDef chassis fill:#1a3a6b,color:#fff,stroke:#0d2545
+    classDef module  fill:#1a6b1a,color:#fff,stroke:#0d4a0d
+    classDef device  fill:#1a6b6b,color:#fff,stroke:#0d4545
+    classDef sensor  fill:#7a4a00,color:#fff,stroke:#4a2d00
+    classDef port    fill:#4a0080,color:#fff,stroke:#2d0059
+    classDef gap     fill:#5a0000,color:#fff,stroke:#3d0000
 
     CHASSIS["chassis 1\nCHASSIS(3) · index 1\nDEVICE_METADATA"]:::chassis
 
@@ -737,11 +737,11 @@ graph TD
 
 ```mermaid
 graph TD
-    classDef root fill:#1565C0,color:#fff,stroke:#0D47A1,stroke-width:2px
-    classDef table fill:#2E7D32,color:#fff,stroke:#1B5E20,stroke-width:2px
-    classDef obj fill:#00695C,color:#fff,stroke:#004D40,stroke-width:2px
-    classDef notif fill:#E65100,color:#fff,stroke:#BF360C,stroke-width:2px
-    classDef gap fill:#B71C1C,color:#fff,stroke:#7F0000,stroke-width:2px
+    classDef root fill:#1a3a6b,color:#fff,stroke:#0d2545
+    classDef table fill:#1a6b1a,color:#fff,stroke:#0d4a0d
+    classDef obj fill:#2d4a2d,color:#fff,stroke:#1a331a
+    classDef notif fill:#8b3a00,color:#fff,stroke:#5a2500
+    classDef gap fill:#5a0000,color:#fff,stroke:#3d0000
 
     ROOT[".1.3.6.1.2.1.47\nentityMIB"]:::root
     PHYS[".47.1.1.1  entPhysicalTable\nOne row per physical component"]:::table
@@ -771,7 +771,7 @@ graph TD
 
 **OID:** `.1.3.6.1.2.1.47.2.0.1`
 
-```
+```text
 entConfigChange NOTIFICATION-TYPE
     STATUS  current
     DESCRIPTION
@@ -822,7 +822,7 @@ sequenceDiagram
 
 ```mermaid
 graph LR
-    classDef idx fill:#455A64,color:#fff,stroke:#263238,stroke-width:2px
+    classDef idx fill:#333,color:#fff,stroke:#111
 
     I1["index  1\nChassis root"]:::idx
     I2["index  200000000\nMgmt CPU"]:::idx
@@ -846,23 +846,23 @@ Index encoding (9 digits): `ModuleType(1) · ModuleIndex(2) · DeviceType(2) · 
 | OID suffix | Object | Value source | Status |
 |---|---|---|---|
 | `1.1.1.2` | `entPhysicalDescr` | DB key description | ✅ |
-| `1.1.1.3` | `entPhysicalVendorType` | Always `""` — PEN 64820 not wired | ❌ GAP |
+| `1.1.1.3` | `entPhysicalVendorType` | Always `""` — PEN 64820 not wired | ❌ GAP-ENT-01 |
 | `1.1.1.4` | `entPhysicalContainedIn` | Parent index from name→OID map | ✅ |
 | `1.1.1.5` | `entPhysicalClass` | chassis/fan/sensor/module/port enum | ✅ |
 | `1.1.1.6` | `entPhysicalParentRelPos` | Slot position | ✅ |
 | `1.1.1.7` | `entPhysicalName` | DB key name | ✅ |
 | `1.1.1.8` | `entPhysicalHardwareVersion` | `vendor_rev` from TRANSCEIVER_INFO | ✅ |
-| `1.1.1.9` | `entPhysicalFirmwareVersion` | Always `""` | ❌ GAP |
-| `1.1.1.10` | `entPhysicalSoftwareRevision` | Always `""` | ❌ GAP |
+| `1.1.1.9` | `entPhysicalFirmwareVersion` | Always `""` | ❌ GAP-ENT-02 |
+| `1.1.1.10` | `entPhysicalSoftwareRevision` | Always `""` | ❌ GAP-ENT-03 |
 | `1.1.1.11` | `entPhysicalSerialNumber` | PSU / FAN / XCVR info | ✅ |
 | `1.1.1.12` | `entPhysicalMfgName` | Manufacturer | ✅ |
 | `1.1.1.13` | `entPhysicalModelName` | Part number | ✅ |
 | `1.1.1.14` | `entPhysicalAlias` | Always `""` | ⚠️ |
 | `1.1.1.15` | `entPhysicalAssetID` | Always `""` | ⚠️ |
 | `1.1.1.16` | `entPhysicalIsFRU` | `is_replaceable` | ✅ |
-| `1.3.3` | `entPhysicalContainsTable` | Not implemented | ❌ GAP |
-| `1.2` | `entLogicalTable` | Not implemented | ❌ GAP |
-| `entConfigChange` `.47.2.0.1` | trap | Never sent | ❌ GAP |
+| `1.3.3` | `entPhysicalContainsTable` | Not implemented | ❌ GAP-ENT-04 |
+| `1.2` | `entLogicalTable` | Not implemented | ❌ GAP-ENT-05 |
+| `entConfigChange` `.47.2.0.1` | trap | Never sent | ❌ GAP-ENT-06 |
 
 ### 5.7 pytest tests for Entity MIB
 
@@ -910,13 +910,13 @@ def test_firmware_version_known_gap(snmp):
             f"Firmware version now populated at {oid}: '{val}' — gap may be fixed!"
 
 def test_vendor_type_known_gap(snmp):
-    """GAP-ENT-03: entPhysicalVendorType always empty — UpscaleAI PEN 64820 not wired."""
+    """GAP-ENT-01: entPhysicalVendorType always empty — UpscaleAI PEN 64820 not wired."""
     for oid, val in snmp.walk(ENT_VENDOR_TYPE):
         assert str(val) == "", \
             f"VendorType now populated at {oid}: '{val}' — verify it matches PEN 64820 OID tree"
 
 def test_contains_table_known_gap(snmp):
-    """GAP-ENT-05: entPhysicalContainsTable not implemented."""
+    """GAP-ENT-04: entPhysicalContainsTable not implemented."""
     rows = snmp.walk(ENT_CONTAINS_TABLE)
     assert len(rows) == 0, f"entPhysicalContainsTable now returns {len(rows)} rows — gap may be fixed!"
 ```
@@ -959,11 +959,11 @@ RFC 3433 deliberately has **no built-in threshold notification mechanism**. Inst
 
 ```mermaid
 graph TD
-    classDef hw   fill:#00695C,color:#fff,stroke:#004D40,stroke-width:2px
-    classDef db   fill:#37474F,color:#fff,stroke:#263238,stroke-width:2px
-    classDef code fill:#1565C0,color:#fff,stroke:#0D47A1,stroke-width:2px
-    classDef oid  fill:#E65100,color:#fff,stroke:#BF360C,stroke-width:2px
-    classDef gap  fill:#B71C1C,color:#fff,stroke:#7F0000,stroke-width:2px
+    classDef hw   fill:#2d4a2d,color:#fff,stroke:#1a331a
+    classDef db   fill:#4a4a4a,color:#fff,stroke:#333
+    classDef code fill:#1a3a6b,color:#fff,stroke:#0d2545
+    classDef oid  fill:#b35c00,color:#fff,stroke:#7a3f00
+    classDef gap  fill:#5a0000,color:#fff,stroke:#3d0000
 
     HW["Physical sensor\ne.g. Spectrum-4 die temp"]:::hw
     DAEMON["thermalctld / xcvrd / psud"]:::hw
@@ -985,7 +985,7 @@ graph TD
 
 ```mermaid
 graph LR
-    classDef ex fill:#1565C0,color:#fff,stroke:#0D47A1,stroke-width:2px
+    classDef ex fill:#1a3a6b,color:#fff,stroke:#0d2545
 
     RAW["Redis raw string\n'40.5'"]:::ex
     STEP1["sensor_data.py\nparse to float: 40.5"]:::ex
@@ -1016,10 +1016,10 @@ graph LR
 
 ```mermaid
 graph TD
-    classDef root  fill:#1565C0,color:#fff,stroke:#0D47A1,stroke-width:2px
-    classDef table fill:#2E7D32,color:#fff,stroke:#1B5E20,stroke-width:2px
-    classDef obj   fill:#00695C,color:#fff,stroke:#004D40,stroke-width:2px
-    classDef gap   fill:#B71C1C,color:#fff,stroke:#7F0000,stroke-width:2px
+    classDef root  fill:#1a3a6b,color:#fff,stroke:#0d2545
+    classDef table fill:#1a6b1a,color:#fff,stroke:#0d4a0d
+    classDef obj   fill:#2d4a2d,color:#fff,stroke:#1a331a
+    classDef gap   fill:#5a0000,color:#fff,stroke:#3d0000
 
     ROOT[".1.3.6.1.2.1.99\nentitySensorMIB"]:::root
     SENSOR_TABLE[".99.1.1  entPhySensorTable\nOne row per SENSOR entity\nindexed by entPhysicalIndex"]:::table
