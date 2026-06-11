@@ -1,8 +1,9 @@
 > **Audience:** Engineers new to SNMP and/or SONiC who want to understand, test, and contribute to
 > Interface, Entity, and Sensor MIB support on a Spectrum-4-based SONiC switch.
 >
-> **Platform:** Spectrum-4 / SONiC · **Enterprise PEN:** UpscaleAI `64820`  
-> **Branch:** `thongal_nms_compliance1` · **Base commit:** `6bc7412`
+> **Platform:** Spectrum-4 / SONiC · **Enterprise PEN:** `64820`  
+> **Branch:** `thongal_nms_compliance1` · **Base commit:** `6bc7412`  
+> **Last updated:** June 11, 2026 — added uCLI SNMP quick-config table (§3.1)
 
 ---
 
@@ -11,6 +12,8 @@
 1. [How SONiC Serves SNMP Data](#1-how-sonic-serves-snmp-data)
 2. [Why pytest for MIB Validation](#2-why-pytest-for-mib-validation)
 3. [Quick-Start: Environment Setup](#3-quick-start-environment-setup)
+   - [3.1 Configure SNMP via uCLI](#31-configure-snmp-via-ucli-recommended)
+   - [3.2 Configure SNMP via JSON fallback](#32-configure-snmp-community-on-the-switch-json-fallback)
 4. [Interface MIB — RFC 1213 / RFC 2863](#4-interface-mib--rfc-1213--rfc-2863)
 5. [Entity MIB — RFC 2737](#5-entity-mib--rfc-2737)
 6. [Entity Sensor MIB — RFC 3433](#6-entity-sensor-mib--rfc-3433)
@@ -340,7 +343,35 @@ pytest tests/ --cov=src/sonic_ax_impl --cov-report=term-missing
 
 ## 3. Quick-Start: Environment Setup
 
-### 3.1 Configure SNMP community on the switch
+### 3.1 Configure SNMP via uCLI (recommended)
+
+As of uCLI 2026-05, SNMP can be configured directly from the CLI without editing JSON files:
+
+```
+# Enter config mode and set SNMP server parameters
+switch# configure terminal
+switch(config)# snmp-server community public ro
+switch(config)# snmp-server host 10.1.1.100
+switch(config)# snmp-server location "Lab-Rack-01"
+switch(config)# write memory
+
+# Verify
+switch# show snmp
+switch# show snmp notification
+switch# show snmp notification host
+```
+
+| uCLI Command | Function | Notes |
+|---|---|---|
+| `snmp-server community STRING ro\|rw` | Set community string | `ro` = read-only (NMS polling) |
+| `snmp-server host IP` | Add trap destination | Needed for linkUp/linkDown (once GAP-TRAP-01 resolved) |
+| `snmp-server location TEXT` | Set `sysLocation.0` OID | Useful for NMS inventory grouping |
+| `no snmp-server community STRING` | Remove community | |
+| `no snmp-server host IP` | Remove trap destination | |
+| `show snmp` | Show community/host config | |
+| `show snmp notification host` | List trap destinations | |
+
+### 3.2 Configure SNMP community on the switch (JSON fallback)
 
 Edit `/etc/sonic/config_db.json`:
 
@@ -1395,5 +1426,6 @@ docker exec -it snmp snmpwalk -v2c -c public localhost .1.3.6.1.2.1.99.1.1.1
 
 - **sonic-snmpagent commit:** `6bc7412`
 - **Analysis branch:** `thongal_nms_compliance1`
-- **UpscaleAI Enterprise PEN:** `64820` (`1.3.6.1.4.1.64820`)
+- **Enterprise PEN:** `64820` (`1.3.6.1.4.1.64820`)
 - **RFC dates:** RFC 1213 (Mar 1991) · RFC 2863 (Jun 2000) · RFC 2737 (Dec 1999) · RFC 3433 (Dec 2002)
+- **Doc updated:** June 11, 2026
